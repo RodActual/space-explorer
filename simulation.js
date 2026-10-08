@@ -574,7 +574,10 @@ function drawOrrery(frame, view) {
     ctx.arc(px, py, b.size, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = "rgba(232, 236, 255, 0.85)";
-    ctx.fillText(b.name, px + b.size + 4, py + 4);
+    // Flip the label to the left when it would run off the right edge.
+    const labelW = ctx.measureText(b.name).width;
+    const lx = px + b.size + 4 + labelW > size ? px - b.size - 4 - labelW : px + b.size + 4;
+    ctx.fillText(b.name, lx, py + 4);
     orreryHits.push({ name: b.name, x: px, y: py });
   }
 }
@@ -734,7 +737,7 @@ tabButtons.forEach((b) => b.addEventListener("click", () => setTab(b.dataset.tab
 canvas.addEventListener("click", (e) => {
   const rect = canvas.getBoundingClientRect();
   const x = e.clientX - rect.left, y = e.clientY - rect.top;
-  let best = null, bestD = 16;
+  let best = null, bestD = 24; // Finger-sized hit area.
   for (const h of orreryHits) {
     const d = Math.hypot(h.x - x, h.y - y);
     if (d < bestD) { best = h; bestD = d; }
@@ -788,6 +791,14 @@ function setFinder(name) {
   remember("finder", name);
 }
 finderSelect.addEventListener("change", () => setFinder(finderSelect.value));
+
+// On phones the map sits above the result lists, so bring it into view after a jump.
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".result-list button")) return;
+  if (window.matchMedia("(max-width: 799px)").matches) {
+    document.querySelector(".viz").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+});
 setPanel(recall("panel"));
 setFinder(recall("finder"));
 window.addEventListener("resize", render);

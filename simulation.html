@@ -2,7 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#03040c">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Space">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+  <link rel="manifest" href="manifest.webmanifest">
   <title>Orbital Simulation</title>
   <link rel="stylesheet" href="styles.css">
   <style>
@@ -40,9 +49,18 @@
     .time-bar [data-step] { font-size: 1.2rem; line-height: 1; padding: 0.4rem 0.8rem; }
     .time-group { display: flex; gap: 0.4rem; align-items: center; }
     @media (max-width: 480px) {
-      .sim-header { grid-template-columns: auto 1fr auto; }
+      .sim-header { grid-template-columns: auto 1fr auto; padding-top: max(0.9rem, env(safe-area-inset-top)); }
+      .sim-header h1 { font-size: 1rem; letter-spacing: 0.04em; }
       .time-group { width: 100%; justify-content: center; }
       .time-bar input { min-width: 0; flex: 1; padding: 0.45rem 0.4rem; }
+      .time-bar button, .time-bar input, .time-bar select, .tabs button,
+      .settings summary, .settings-menu button { min-height: 44px; }
+      .time-bar [data-step] { min-width: 44px; padding: 0.4rem 0.6rem; }
+      .settings summary { display: flex; align-items: center; }
+      .sim-layout { padding-bottom: 1rem; }
+      .panel { padding: 0.9rem 1rem; }
+      .search-row input, .search-row select, .search-row button, .finder-pick select { min-height: 40px; }
+      .result-list { max-height: none; }
     }
     #playBtn { min-width: 4.5rem; }
     .sim-layout {
