@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orbital Simulation</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .sim-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      justify-content: center;
+      margin: 1rem auto;
+      max-width: 960px;
+      padding: 0 1rem;
+    }
+    .sim-controls label { color: var(--muted); font-size: 0.85rem; }
+    .sim-controls input,
+    .sim-controls button,
+    .sim-controls select {
+      font: inherit;
+      color: var(--text);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.45rem 0.7rem;
+    }
+    .sim-controls input[type="number"] { width: 5.5rem; }
+    .sim-controls button { cursor: pointer; }
+    .sim-controls button:hover,
+    .sim-controls button:focus-visible { border-color: var(--accent); outline: none; }
+    #copyStatus { color: var(--muted); font-size: 0.85rem; min-width: 5rem; }
+    .sim-layout {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 0 1rem 2rem;
+      display: grid;
+      gap: 1.25rem;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 800px) {
+      .sim-layout { grid-template-columns: 1.1fr 1fr; }
+      .viz { position: sticky; top: 1rem; align-self: start; }
+    }
+    .tabs { display: flex; gap: 0.4rem; margin-bottom: 0.6rem; }
+    .tabs button {
+      flex: 1; font: inherit; color: var(--muted); background: var(--panel);
+      border: 1px solid var(--border); border-radius: 8px; padding: 0.45rem 0.5rem; cursor: pointer;
+    }
+    .tabs button[aria-selected="true"] { color: var(--text); border-color: var(--accent); box-shadow: 0 0 10px rgba(110, 168, 255, 0.3); }
+    #orrery, #skyCanvas, #view3d {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      display: block;
+    }
+    #orrery, #view3d { background: radial-gradient(circle at center, #0c1436 0%, #03040c 75%); }
+    #orrery, #skyCanvas { cursor: pointer; }
+    #view3d { position: relative; overflow: hidden; }
+    #view3d canvas { display: block; touch-action: none; cursor: grab; }
+    #view3d[hidden], #orrery[hidden], #skyCanvas[hidden] { display: none; }
+    .label3d {
+      position: absolute; transform: translate(8px, -50%); pointer-events: none;
+      font-size: 12px; color: rgba(232, 236, 255, 0.85); white-space: nowrap;
+    }
+    .status3d { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: var(--muted); }
+    #vizNote { color: var(--muted); font-size: 0.85rem; margin: 0.5rem 0 0; }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1rem 1.25rem;
+    }
+    .panel h2 { margin: 0 0 0.5rem; font-size: 1.2rem; }
+    .panel p { color: var(--muted); margin: 0.25rem 0; line-height: 1.5; }
+    .panel + .panel { margin-top: 1rem; }
+    table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+    th, td { text-align: left; padding: 0.35rem 0.25rem; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 500; font-size: 0.85rem; }
+    td.num { font-variant-numeric: tabular-nums; }
+    tr[data-body] { cursor: pointer; }
+    tr[data-body]:hover td { background: rgba(110, 168, 255, 0.08); }
+    tr.selected td { background: rgba(110, 168, 255, 0.16); }
+    #verdict { font-weight: 600; font-size: 1.05rem; }
+    .tag { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.8rem; }
+    .tag.tight { background: rgba(120, 255, 170, 0.18); color: #9ff5c0; }
+    .tag.loose { background: rgba(255, 220, 120, 0.18); color: #ffe39a; }
+    .tag.none  { background: rgba(255, 120, 120, 0.15); color: #ffb3b3; }
+    .search-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
+    .search-row label { color: var(--muted); font-size: 0.85rem; }
+    .search-row input, .search-row button, .panel > button {
+      font: inherit; color: var(--text); background: var(--bg-top);
+      border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 0.6rem;
+    }
+    .search-row input[type="number"] { width: 5.5rem; }
+    .search-row button, .panel > button { cursor: pointer; }
+    .result-list { list-style: none; padding: 0; margin: 0.5rem 0 0; max-height: 320px; overflow-y: auto; }
+    .result-list li { margin: 0.3rem 0; }
+    .result-list button {
+      width: 100%; text-align: left; font: inherit; color: var(--text);
+      background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 0.45rem 0.6rem; cursor: pointer;
+    }
+    .result-list button span { color: var(--muted); }
+    .result-list button:hover, .result-list button:focus-visible { border-color: var(--accent); outline: none; }
+    .info-grid { display: grid; grid-template-columns: auto 1fr; gap: 0.3rem 1rem; margin: 0.6rem 0 0; }
+    .info-grid dt { color: var(--muted); }
+    .info-grid dd { margin: 0; }
+    #infoCard h3 { margin: 0; font-size: 1.15rem; }
+    .moon-row { display: flex; gap: 1rem; align-items: center; }
+    #moonCanvas { width: 72px; height: 72px; flex-shrink: 0; }
+    #moonName { color: var(--text); font-weight: 600; }
+    #apod img { width: 100%; border-radius: 10px; margin-top: 0.5rem; display: block; }
+    #apod h3 { margin: 0.75rem 0 0.25rem; font-size: 1.05rem; }
+    #apod a { color: var(--accent); }
+
+    .viz-options { display: flex; flex-wrap: wrap; gap: 0.9rem; margin-top: 0.5rem; color: var(--muted); font-size: 0.9rem; }
+    .viz-options[hidden] { display: none; }
+    .search-row select {
+      font: inherit; color: var(--text); background: var(--bg-top);
+      border: 1px solid var(--border); border-radius: 8px; padding: 0.4rem 0.6rem;
+    }
+    .credits { color: var(--muted); font-size: 0.8rem; line-height: 1.5; margin: 1rem 0; }
+    .ext-link { display: inline-block; margin: 0.25rem 0 0 0.6rem; color: var(--accent); font-size: 0.9rem; }
+
+    #arView { position: fixed; inset: 0; z-index: 50; background: #000; }
+    #arView[hidden] { display: none; }
+    #arVideo, #arCanvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .ar-top, .ar-bottom {
+      position: absolute; left: 0; right: 0; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;
+      padding: 0.75rem 1rem; background: rgba(3, 4, 12, 0.6); color: var(--text);
+    }
+    .ar-top { top: 0; justify-content: space-between; padding-top: max(0.75rem, env(safe-area-inset-top)); }
+    .ar-bottom { bottom: 0; padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); }
+    .ar-top button, .ar-bottom button, .ar-bottom select {
+      font: inherit; color: var(--text); background: var(--panel);
+      border: 1px solid var(--border); border-radius: 8px; padding: 0.45rem 0.7rem;
+    }
+    .ar-bottom input[type="range"] { flex: 1; min-width: 100px; }
+    body.ar-open { overflow: hidden; }
+
+    /* Night mode: all-red display that preserves dark-adapted vision. */
+    html.night { background: #000; }
+    html.night body { filter: grayscale(1) sepia(1) saturate(6) hue-rotate(-45deg) brightness(0.7); }
+    html.night body.ar-open { filter: none; }
+    html.night #arView { filter: grayscale(1) sepia(1) saturate(6) hue-rotate(-45deg) brightness(0.7); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Orbital Simulation</h1>
+    <p>Planet positions on any date and time, from the Sun, from Earth, or from your backyard. <a href="index.html" style="color: var(--accent);">Back to the explorer</a></p>
+  </header>
+
+  <div class="sim-controls">
+    <label for="dateInput">Date</label>
+    <input type="date" id="dateInput">
+    <label for="timeInput">Time</label>
+    <input type="time" id="timeInput" value="12:00">
+    <button type="button" id="todayBtn">Now</button>
+    <button type="button" data-step="-1">-1 day</button>
+    <button type="button" data-step="1">+1 day</button>
+    <button type="button" data-step="-30">-1 month</button>
+    <button type="button" data-step="30">+1 month</button>
+    <button type="button" id="playBtn">Play</button>
+    <select id="speedSelect" aria-label="Playback speed">
+      <option value="0.0417">1 hour/frame</option>
+      <option value="1">1 day/frame</option>
+      <option value="7">1 week/frame</option>
+      <option value="30" selected>1 month/frame</option>
+    </select>
+  </div>
+
+  <div class="sim-controls">
+    <label for="viewSelect">Map view</label>
+    <select id="viewSelect">
+      <option value="helio">Heliocentric (from the Sun)</option>
+      <option value="geo">Geocentric (from Earth)</option>
+    </select>
+    <label for="trailSelect">Trails</label>
+    <select id="trailSelect">
+      <option value="0">Off</option>
+      <option value="30">30 days</option>
+      <option value="90">90 days</option>
+      <option value="365">1 year</option>
+    </select>
+    <label for="tightInput">Tight under</label>
+    <input type="number" id="tightInput" value="45" min="1" max="359">
+    <label for="looseInput">Loose under</label>
+    <input type="number" id="looseInput" value="90" min="1" max="359">
+    <button type="button" id="nightBtn" aria-pressed="false">Night mode</button>
+    <button type="button" id="copyBtn">Copy link</button>
+    <span id="copyStatus" aria-live="polite"></span>
+  </div>
+
+  <div class="sim-layout">
+    <div class="viz">
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" data-tab="map" aria-selected="true">Orbit map</button>
+        <button type="button" role="tab" data-tab="sky" aria-selected="false">Your sky</button>
+        <button type="button" role="tab" data-tab="3d" aria-selected="false">3D</button>
+      </div>
+      <canvas id="orrery" aria-label="Top-down view of the solar system"></canvas>
+      <canvas id="skyCanvas" aria-label="Sky chart for your location" hidden></canvas>
+      <div id="view3d" aria-label="3D view of the solar system" hidden></div>
+      <div id="skyOptions" class="viz-options" hidden>
+        <label><input type="checkbox" id="opt-stars"> Stars</label>
+        <label><input type="checkbox" id="opt-lines"> Constellation lines</label>
+        <label><input type="checkbox" id="opt-labels"> Names</label>
+      </div>
+      <p id="vizNote"></p>
+    </div>
+
+    <div>
+      <section class="panel">
+        <h2>Alignment</h2>
+        <p id="verdict"></p>
+        <p id="spanText"></p>
+        <p id="conjText"></p>
+        <p id="frameNote"></p>
+      </section>
+
+      <section class="panel">
+        <h2>Body info</h2>
+        <div id="infoCard" aria-live="polite"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Your sky today</h2>
+        <div class="search-row">
+          <label for="latInput">Lat</label>
+          <input type="number" id="latInput" step="0.001" min="-90" max="90">
+          <label for="lonInput">Lon</label>
+          <input type="number" id="lonInput" step="0.001" min="-180" max="180">
+          <button type="button" id="locBtn">Use my location</button>
+        </div>
+        <p id="locStatus" aria-live="polite"></p>
+        <p>Times are in your device's time zone. West longitudes are negative.</p>
+        <table>
+          <thead>
+            <tr><th>Body</th><th>Rise</th><th>Set</th><th>Now</th></tr>
+          </thead>
+          <tbody id="riseSet"></tbody>
+        </table>
+      </section>
+
+      <section class="panel">
+        <h2>Moon</h2>
+        <div class="moon-row">
+          <canvas id="moonCanvas" width="144" height="144" aria-label="Moon phase"></canvas>
+          <div>
+            <p id="moonName"></p>
+            <p id="moonIllum"></p>
+            <p id="moonAge"></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Positions</h2>
+        <table>
+          <thead>
+            <tr><th>Body</th><th>Longitude</th><th>Distance (AU)</th></tr>
+          </thead>
+          <tbody id="positions"></tbody>
+        </table>
+      </section>
+
+      <section class="panel">
+        <h2>Event finder</h2>
+        <p>Conjunctions, oppositions, solar conjunctions and greatest elongations as seen from Earth.</p>
+        <div class="search-row">
+          <label for="eventStart">From</label>
+          <input type="date" id="eventStart">
+          <label for="eventDays">Days</label>
+          <input type="number" id="eventDays" value="365" min="1" max="3650">
+          <label for="eventSep">Pairs within</label>
+          <input type="number" id="eventSep" value="3" min="0.1" max="10" step="0.1">
+          <label>deg</label>
+          <button type="button" id="eventBtn">Find events</button>
+        </div>
+        <p id="eventSummary" aria-live="polite"></p>
+        <ul id="eventList" class="result-list"></ul>
+      </section>
+
+      <section class="panel">
+        <h2>Satellite passes</h2>
+        <p>Passes at least 10 degrees above your horizon, starting from the selected date and time. "Visible" means the satellite is sunlit while your sky is dark.</p>
+        <div class="search-row">
+          <label for="satSelect">Satellite</label>
+          <select id="satSelect">
+            <option value="25544">ISS</option>
+            <option value="48274">Tiangong</option>
+            <option value="20580">Hubble</option>
+            <option value="bright">All bright satellites</option>
+          </select>
+          <label for="satDays">Days</label>
+          <input type="number" id="satDays" value="5" min="1" max="10">
+          <label><input type="checkbox" id="satVisibleOnly" checked> Visible only</label>
+          <button type="button" id="satBtn">Find passes</button>
+        </div>
+        <p id="satSummary" aria-live="polite"></p>
+        <ul id="satList" class="result-list"></ul>
+      </section>
+
+      <section class="panel">
+        <h2>Eclipses</h2>
+        <div class="search-row">
+          <label for="eclStart">From</label>
+          <input type="date" id="eclStart">
+          <label for="eclYears">Years</label>
+          <input type="number" id="eclYears" value="5" min="1" max="50">
+          <select id="eclKind" aria-label="Eclipse type">
+            <option value="all">Solar and lunar</option>
+            <option value="solar">Solar only</option>
+            <option value="lunar">Lunar only</option>
+          </select>
+          <button type="button" id="eclBtn">Find eclipses</button>
+        </div>
+        <p id="eclSummary" aria-live="polite"></p>
+        <ul id="eclList" class="result-list"></ul>
+      </section>
+
+      <section class="panel">
+        <h2>AR sky view</h2>
+        <p>Hold your phone up to the sky to see labels over the real stars and planets. Needs a phone with a compass, and the hosted (HTTPS) version of the app.</p>
+        <button type="button" id="arOpenBtn">Open AR view</button>
+        <p id="arNote" aria-live="polite"></p>
+      </section>
+
+      <section class="panel">
+        <h2>Find alignments</h2>
+        <div class="search-row">
+          <label for="searchStart">From</label>
+          <input type="date" id="searchStart">
+          <label for="searchDays">Days</label>
+          <input type="number" id="searchDays" value="365" min="1" max="3650">
+          <label for="searchTol">Within</label>
+          <input type="number" id="searchTol" value="90" min="1" max="359">
+          <label>deg</label>
+          <button type="button" id="searchBtn">Search</button>
+        </div>
+        <p id="searchSummary"></p>
+        <ul id="results" class="result-list"></ul>
+      </section>
+
+      <p class="credits">Star and constellation data: d3-celestial by Olaf Frohn (BSD-3-Clause), from the Hipparcos and Yale Bright Star catalogs. Satellite orbits: CelesTrak, computed with satellite.js (MIT). Eclipse method: Meeus, Astronomical Algorithms.</p>
+
+      <section class="panel">
+        <h2>NASA picture of the day</h2>
+        <button type="button" id="apodBtn">Load picture for this date</button>
+        <div id="apod" aria-live="polite"></div>
+      </section>
+    </div>
+  </div>
+
+  <div id="arView" hidden>
+    <video id="arVideo" playsinline muted></video>
+    <canvas id="arCanvas"></canvas>
+    <div class="ar-top">
+      <span id="arStatus" aria-live="polite"></span>
+      <button type="button" id="arCloseBtn">Close</button>
+    </div>
+    <div class="ar-bottom">
+      <label for="arAlignSelect">Center</label>
+      <select id="arAlignSelect">
+        <option>Moon</option><option>Sun</option><option>Venus</option><option>Jupiter</option>
+        <option>Saturn</option><option>Mars</option><option>Mercury</option>
+      </select>
+      <button type="button" id="arAlignBtn">Align</button>
+      <button type="button" id="arResetBtn">Reset</button>
+      <label for="arFov">Zoom</label>
+      <input type="range" id="arFov" min="30" max="100" step="1" value="65">
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/satellite.js@5.0.0/dist/satellite.min.js"></script>
+  <script src="simulation.js"></script>
+  <script src="sky.js"></script>
+  <script src="events.js"></script>
+  <script src="satellites.js"></script>
+  <script src="eclipses.js"></script>
+  <script src="view3d.js"></script>
+  <script src="ar.js"></script>
+</body>
+</html>

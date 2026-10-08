@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deep Space Explorer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <canvas id="stars" aria-hidden="true"></canvas>
+
+  <header>
+    <h1>Deep Space Explorer</h1>
+    <p>Pick a body to learn about it, or <a href="simulation.html" style="color: var(--accent);">open the orbital simulation</a>.</p>
+  </header>
+
+  <main>
+    <nav id="bodies" aria-label="Solar system bodies"></nav>
+
+    <section id="info" aria-live="polite">
+      <h2 id="name"></h2>
+      <p id="desc"></p>
+      <dl>
+        <dt>Diameter</dt><dd id="diameter"></dd>
+        <dt>Distance from Sun</dt><dd id="distance"></dd>
+        <dt>Known moons</dt><dd id="moons"></dd>
+      </dl>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
