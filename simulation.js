@@ -272,6 +272,7 @@ function setTab(tab) {
   $("skyCanvas").hidden = activeTab !== "sky";
   $("view3d").hidden = activeTab !== "3d";
   $("skyOptions").hidden = activeTab !== "sky";
+  $("mapOptions").hidden = activeTab !== "map";
   tabButtons.forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === activeTab)));
   vizNote.textContent = TAB_NOTES[activeTab];
   if (activeTab === "3d") init3D();
@@ -761,6 +762,34 @@ playBtn.addEventListener("click", () => {
 });
 
 searchBtn.addEventListener("click", findAlignments);
+
+// Side panel tabs and the search picker. The choice is remembered per browser.
+function remember(key, val) {
+  try { localStorage.setItem(key, val); } catch (e) { /* storage unavailable */ }
+}
+function recall(key) {
+  try { return localStorage.getItem(key); } catch (e) { return null; }
+}
+
+const panelButtons = document.querySelectorAll("[data-panel]");
+function setPanel(name) {
+  if (!document.querySelector(`[data-pane="${name}"]`)) name = "tonight";
+  panelButtons.forEach((b) => b.setAttribute("aria-selected", String(b.dataset.panel === name)));
+  document.querySelectorAll("[data-pane]").forEach((el) => { el.hidden = el.dataset.pane !== name; });
+  remember("panel", name);
+}
+panelButtons.forEach((b) => b.addEventListener("click", () => setPanel(b.dataset.panel)));
+
+const finderSelect = $("finderSelect");
+function setFinder(name) {
+  if (![...finderSelect.options].some((o) => o.value === name)) name = "events";
+  finderSelect.value = name;
+  document.querySelectorAll("[data-finder]").forEach((el) => { el.hidden = el.dataset.finder !== name; });
+  remember("finder", name);
+}
+finderSelect.addEventListener("change", () => setFinder(finderSelect.value));
+setPanel(recall("panel"));
+setFinder(recall("finder"));
 window.addEventListener("resize", render);
 
 // Initial state runs after sky.js, events.js and view3d.js have loaded.
