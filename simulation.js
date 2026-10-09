@@ -242,9 +242,9 @@ let selectedBody = null;
 let orreryHits = [];
 
 const TAB_NOTES = {
-  map: "Top-down view. Square-root distance scale, so distances are not to physical scale. Click a body for details.",
-  sky: "Your sky: zenith at the center, horizon at the edge, north up, east left. The dashed gold line is the ecliptic; green squares are satellites. Click a body for details.",
-  "3d": "Drag to rotate, scroll to zoom. Distances compressed with a square-root scale; planet sizes exaggerated."
+  map: "The solar system seen from above. Outer orbits are squeezed so everything fits. Tap a planet for details.",
+  sky: "Your sky as if lying on your back: straight up is the center, the horizon is the edge. The gold dashed line is the path the planets follow; green squares are satellites. Tap anything for details.",
+  "3d": "Drag to spin, pinch or scroll to zoom. Sizes and distances are not to scale."
 };
 
 // Inputs show local time. Convert between local inputs and UTC timestamps.
@@ -252,6 +252,67 @@ function showInputs(ms) {
   const d = new Date(ms);
   dateInput.value = localDateStr(ms);
   timeInput.value = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  showTimeStatus(ms);
+}
+
+// Plain-language line under the time bar: what moment is shown and how far it is from now.
+function relativeTo(ms) {
+  const diff = ms - Date.now();
+  const abs = Math.abs(diff);
+  if (abs < 30 * 60000) return "";
+  const units = [[365.25 * DAY, "year"], [30.44 * DAY, "month"], [7 * DAY, "week"], [DAY, "day"], [3600000, "hour"]];
+  for (const [size, name] of units) {
+    if (abs >= size * 0.95) {
+      const n = Math.round(abs / size);
+      const text = `${n} ${name}${n === 1 ? "" : "s"}`;
+      return diff > 0 ? `${text} from now` : `${text} ago`;
+    }
+  }
+  return "";
+}
+
+function showTimeStatus(ms) {
+  const el = $("timeStatus");
+  if (!el) return;
+  const when = new Date(ms).toLocaleString([], { weekday: "short", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+  const rel = relativeTo(ms);
+  el.innerHTML = "";
+  const strong = document.createElement("strong");
+  strong.textContent = when;
+  el.appendChild(strong);
+  if (playing) {
+    el.append(" (playing)");
+  } else if (rel) {
+    el.append(` (${rel}) `);
+    const back = document.createElement("button");
+    back.type = "button";
+    back.textContent = "Back to now";
+    back.addEventListener("click", () => setMs(Date.now()));
+    el.appendChild(back);
+  } else {
+    el.append(" (now)");
+  }
+}
+
+// Draws a label next to a point, trying a few spots so labels do not overlap each other.
+function placeLabel(c, text, x, y, r, placed, size) {
+  const w = c.measureText(text).width;
+  const h = 13;
+  const spots = [
+    [x + r + 4, y], [x - r - 4 - w, y],
+    [x + r + 2, y + h], [x + r + 2, y - h],
+    [x - r - 2 - w, y + h], [x - r - 2 - w, y - h]
+  ];
+  const fits = ([lx, ly]) => lx >= 0 && lx + w <= size && ly - h / 2 >= 0 && ly + h / 2 <= size;
+  const clear = ([lx, ly]) => placed.every((p) => lx + w < p.x || lx > p.x + p.w || ly + h / 2 < p.y - p.h / 2 || ly - h / 2 > p.y + p.h / 2);
+  const spot = spots.find((sp) => fits(sp) && clear(sp)) || spots.find(fits) || spots[0];
+  const baseline = c.textBaseline, align = c.textAlign;
+  c.textBaseline = "middle";
+  c.textAlign = "left";
+  c.fillText(text, spot[0], spot[1]);
+  c.textBaseline = baseline;
+  c.textAlign = align;
+  placed.push({ x: spot[0], y: spot[1], w, h });
 }
 
 function msFromInputs() {
@@ -429,7 +490,7 @@ function renderInfo() {
   infoCard.innerHTML = "";
   if (!selectedBody) {
     const p = document.createElement("p");
-    p.textContent = "Click a body on the map, the sky chart, or either table.";
+    p.textContent = "Tap a planet, the Sun or the Moon to see details here.";
     infoCard.appendChild(p);
     return;
   }
@@ -532,6 +593,8 @@ function drawOrrery(frame, view) {
     orreryHits.push({ name: "Earth", x: cx, y: cy });
   }
 
+  const labels = [];
+
   // Trails
   const days = Number(trailSelect.value);
   if (days > 0) {
@@ -556,7 +619,7 @@ function drawOrrery(frame, view) {
     const [sx, sy] = project(frame.sun);
     drawGlow(sx, sy, 14, "#fff7c2", "rgba(255, 180, 40, 0)");
     ctx.fillStyle = "rgba(232, 236, 255, 0.85)";
-    ctx.fillText("Sun", sx + 10, sy + 4);
+    placeLabel(ctx, "Sun", sx, sy, 6, labels, size);
     orreryHits.push({ name: "Sun", x: sx, y: sy });
   }
 
@@ -574,10 +637,7 @@ function drawOrrery(frame, view) {
     ctx.arc(px, py, b.size, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = "rgba(232, 236, 255, 0.85)";
-    // Flip the label to the left when it would run off the right edge.
-    const labelW = ctx.measureText(b.name).width;
-    const lx = px + b.size + 4 + labelW > size ? px - b.size - 4 - labelW : px + b.size + 4;
-    ctx.fillText(b.name, lx, py + 4);
+    placeLabel(ctx, b.name, px, py, b.size, labels, size);
     orreryHits.push({ name: b.name, x: px, y: py });
   }
 }
@@ -644,7 +704,7 @@ function findAlignments() {
 
   const frameWord = view === "helio" ? "from the Sun" : "from Earth";
   searchSummary.textContent = hits.length
-    ? `${hits.length}${hits.length === 50 ? " or more" : ""} run${hits.length === 1 ? "" : "s"} found within ${tol} degrees ${frameWord}. Click a date to view it.`
+    ? `${hits.length}${hits.length === 50 ? " or more" : ""} run${hits.length === 1 ? "" : "s"} found within ${tol} degrees ${frameWord}. Tap a date to view it.`
     : `No dates within ${tol} degrees ${frameWord} in this range.`;
 }
 
@@ -755,6 +815,8 @@ apodBtn.addEventListener("click", loadApod);
 playBtn.addEventListener("click", () => {
   playing = !playing;
   playBtn.textContent = playing ? "Pause" : "Play";
+  playBtn.setAttribute("aria-pressed", String(playing));
+  showTimeStatus(currentMs);
   if (playing) {
     playTimer = setInterval(() => {
       setMs(currentMs + Number(speedSelect.value) * DAY);

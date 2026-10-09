@@ -269,7 +269,7 @@ satBtn.addEventListener("click", async () => {
     const oldest = Math.max(...ages);
     const span = choice === "bright" && days > 2 ? " Bright-satellite search is limited to 2 days." : "";
     satSummary.textContent = (rows.length
-      ? `${rows.length} pass${rows.length === 1 ? "" : "es"} found from your location.${span} Click one to show its path on the sky chart.`
+      ? `${rows.length} pass${rows.length === 1 ? "" : "es"} found from your location.${span} Tap one to show its path on the sky chart.`
       : `No ${satVisibleOnly.checked || choice === "bright" ? "visible " : ""}passes in this window.${span}`) +
       (oldest > 30 ? ` Orbit data is ${oldest.toFixed(0)} days old and too stale for reliable times.`
         : oldest > 7 ? ` Orbit data is ${oldest.toFixed(0)} days old, so times may be off by minutes.` : "");

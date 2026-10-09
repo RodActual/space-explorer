@@ -61,8 +61,27 @@
       .panel { padding: 0.9rem 1rem; }
       .search-row input, .search-row select, .search-row button, .finder-pick select { min-height: 40px; }
       .result-list { max-height: none; }
+      .rise-set { font-size: 0.85rem; }
+      .rise-set td, .rise-set th { padding: 0.4rem 0.2rem; }
     }
     #playBtn { min-width: 4.5rem; }
+    #playBtn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #03040c; font-weight: 600; }
+    #timeStatus { text-align: center; color: var(--muted); font-size: 0.9rem; margin: -0.4rem 1rem 1rem; }
+    #timeStatus strong { color: var(--text); font-weight: 600; }
+    #timeStatus button {
+      font: inherit; color: var(--accent); background: none; border: none; padding: 0 0.2rem;
+      text-decoration: underline; cursor: pointer;
+    }
+    .loc-line { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.25rem; }
+    .loc-line span { color: var(--muted); font-size: 0.9rem; }
+    .loc-line button {
+      font: inherit; font-size: 0.9rem; color: var(--text); background: var(--bg-top);
+      border: 1px solid var(--accent); border-radius: 999px; padding: 0.35rem 0.8rem; cursor: pointer;
+    }
+    #locStatus:empty { display: none; }
+    .rise-set td, .rise-set th { white-space: nowrap; }
+    .rise-set tr.down td { opacity: 0.5; }
+    .panel p.hint { font-size: 0.85rem; margin-top: 0.5rem; }
     .sim-layout {
       max-width: 1080px;
       margin: 0 auto;
@@ -218,15 +237,16 @@
     </span>
     <span class="time-group">
     <button type="button" id="todayBtn">Now</button>
-    <button type="button" id="playBtn">Play</button>
-    <select id="speedSelect" aria-label="Playback speed">
-      <option value="0.0417">1 hour/step</option>
-      <option value="1">1 day/step</option>
-      <option value="7">1 week/step</option>
-      <option value="30" selected>1 month/step</option>
+    <button type="button" id="playBtn" aria-pressed="false">Play</button>
+    <select id="speedSelect" aria-label="How far each Play step jumps">
+      <option value="0.0417">+1 hour</option>
+      <option value="1">+1 day</option>
+      <option value="7">+1 week</option>
+      <option value="30" selected>+1 month</option>
     </select>
     </span>
   </div>
+  <p id="timeStatus" aria-live="polite"></p>
 
   <div class="sim-layout">
     <div class="viz">
@@ -239,18 +259,18 @@
       <canvas id="skyCanvas" aria-label="Sky chart for your location" hidden></canvas>
       <div id="view3d" aria-label="3D view of the solar system" hidden></div>
       <div id="mapOptions" class="viz-options">
-        <label>From
+        <label>Centered on
           <select id="viewSelect">
             <option value="helio">the Sun</option>
             <option value="geo">Earth</option>
           </select>
         </label>
-        <label>Trails
+        <label>Show path
           <select id="trailSelect">
             <option value="0">Off</option>
-            <option value="30">30 days</option>
-            <option value="90">90 days</option>
-            <option value="365">1 year</option>
+            <option value="30">Past month</option>
+            <option value="90">Past 3 months</option>
+            <option value="365">Past year</option>
           </select>
         </label>
       </div>
@@ -287,24 +307,28 @@
 
         <section class="panel">
           <h2>Rise and set</h2>
-          <table>
+          <div class="loc-line">
+            <span id="locLine"></span>
+            <button type="button" id="locBtn">Use my location</button>
+          </div>
+          <p id="locStatus" aria-live="polite"></p>
+          <table class="rise-set">
             <thead>
-              <tr><th>Body</th><th>Rise</th><th>Set</th><th>Now</th></tr>
+              <tr><th>Body</th><th>Rises</th><th>Sets</th><th>Now</th></tr>
             </thead>
             <tbody id="riseSet"></tbody>
           </table>
+          <p class="hint">Times are in your phone's time zone. Faded rows are below the horizon right now.</p>
           <details class="more">
-            <summary>Location</summary>
+            <summary>Enter a location by hand</summary>
             <div class="search-row">
-              <label for="latInput">Lat</label>
+              <label for="latInput">Latitude</label>
               <input type="number" id="latInput" step="0.001" min="-90" max="90">
-              <label for="lonInput">Lon</label>
+              <label for="lonInput">Longitude</label>
               <input type="number" id="lonInput" step="0.001" min="-180" max="180">
-              <button type="button" id="locBtn">Use my location</button>
             </div>
-            <p>Times use your device's time zone. West longitudes are negative.</p>
+            <p>West longitudes are negative.</p>
           </details>
-          <p id="locStatus" aria-live="polite"></p>
         </section>
 
         <section class="panel">

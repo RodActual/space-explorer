@@ -159,7 +159,7 @@ eventBtn.addEventListener("click", () => {
       eventList.appendChild(li);
     }
     eventSummary.textContent = events.length
-      ? `${events.length} event${events.length === 1 ? "" : "s"} found. Click one to jump to it.`
+      ? `${events.length} event${events.length === 1 ? "" : "s"} found. Tap one to jump to it.`
       : "No events in this range.";
   }, 20);
 });
