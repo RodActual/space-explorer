@@ -205,6 +205,8 @@
       border: 1px solid var(--border); border-radius: 8px; padding: 0.45rem 0.7rem;
     }
     .ar-bottom input[type="range"] { flex: 1; min-width: 100px; }
+    #arHint { flex-basis: 100%; margin: 0; font-size: 0.9rem; }
+    .ar-bottom button:disabled, .ar-bottom select:disabled { opacity: 0.5; }
     body.ar-open { overflow: hidden; }
 
     /* Night mode: all-red display that preserves dark-adapted vision. */
@@ -474,12 +476,9 @@
       <button type="button" id="arCloseBtn">Close</button>
     </div>
     <div class="ar-bottom">
-      <label for="arAlignSelect">Center</label>
-      <select id="arAlignSelect">
-        <option>Moon</option><option>Sun</option><option>Venus</option><option>Jupiter</option>
-        <option>Saturn</option><option>Mars</option><option>Mercury</option>
-      </select>
-      <button type="button" id="arAlignBtn">Align</button>
+      <p id="arHint" aria-live="polite"></p>
+      <select id="arAlignSelect" aria-label="Object to calibrate on"></select>
+      <button type="button" id="arAlignBtn">Calibrate</button>
       <button type="button" id="arResetBtn">Reset</button>
       <label for="arFov">Zoom</label>
       <input type="range" id="arFov" min="30" max="100" step="1" value="65">

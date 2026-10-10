@@ -19,6 +19,8 @@ const ar = {
 try {
   const saved = JSON.parse(localStorage.getItem("arCalibration"));
   if (saved) { ar.yawOffset = Number(saved.yaw) || 0; ar.fov = Number(saved.fov) || 65; }
+  // Older versions accepted any correction; drop ones too large to be a real compass error.
+  if (Math.abs(ar.yawOffset) > 45) ar.yawOffset = 0;
 } catch (e) { /* ignore */ }
 
 // W3C DeviceOrientation: R = Rz(alpha) * Rx(beta) * Ry(gamma), mapping device axes to East, North, Up.
@@ -81,6 +83,38 @@ function arRecalc() {
     }
   }
   ar.lastCalc = now;
+  updateCalibrateChoices(now);
+}
+
+// Calibration targets: only objects high enough to see, brightest first. A thin Moon is skipped.
+const CALIBRATE_ORDER = ["Moon", "Venus", "Jupiter", "Mars", "Saturn", "Mercury", "Sun"];
+
+function updateCalibrateChoices(now) {
+  const select = document.getElementById("arAlignSelect");
+  const btn = document.getElementById("arAlignBtn");
+  const moonLit = moonPhase(now).illum;
+  const up = CALIBRATE_ORDER.filter((name) => {
+    const b = ar.bodies.find((x) => x.name === name);
+    return b && b.alt > 5 && !(name === "Moon" && moonLit < 0.1);
+  });
+  const keep = up.includes(select.value) ? select.value : up[0];
+  if (up.join() !== [...select.options].map((o) => o.value).join()) {
+    select.innerHTML = "";
+    for (const name of up) select.add(new Option(name, name));
+  }
+  if (keep) select.value = keep;
+  select.disabled = btn.disabled = up.length === 0;
+  showCalibrateHint();
+}
+
+function showCalibrateHint(text) {
+  const hint = document.getElementById("arHint");
+  const select = document.getElementById("arAlignSelect");
+  if (text) { hint.textContent = text; ar.hintUntil = Date.now() + 4000; return; }
+  if (Date.now() < (ar.hintUntil || 0)) return;
+  hint.textContent = select.disabled
+    ? "Labels off? Nothing bright is up to calibrate on right now."
+    : `Labels off? Point the crosshair at the real ${select.value}, then tap Calibrate.`;
 }
 
 function arFrame() {
@@ -244,16 +278,28 @@ function saveCalibration() {
   try { localStorage.setItem("arCalibration", JSON.stringify({ yaw: ar.yawOffset, fov: ar.fov })); } catch (e) { /* ignore */ }
 }
 
-// Align: the user centers a known body in the crosshair, and the compass error is removed.
+// Calibrate: the user centers a known body in the crosshair, and the compass error is removed.
+// Corrections that are too large mean the wrong spot was centered, so they are refused.
+const theName = (n) => (n === "Sun" || n === "Moon" ? `the ${n}` : n);
+
 function alignOn(name) {
-  if (!ar.R) return;
+  if (!ar.R || !name) return;
   const b = ar.bodies.find((x) => x.name === name);
   if (!b) return;
   const center = arCenterAltAz(ar.R);
   // Screen center shows azimuth (center.az - yawOffset) in true terms; make it equal the body's azimuth.
-  ar.yawOffset = norm180(center.az - b.az);
+  const yaw = norm180(center.az - b.az);
+  if (Math.abs(center.alt - b.alt) > 15) {
+    showCalibrateHint(`The crosshair is not on ${theName(name)}: it should be ${b.alt.toFixed(0)} deg up. Nothing changed.`);
+    return;
+  }
+  if (Math.abs(yaw) > 45) {
+    showCalibrateHint(`That would turn the sky ${Math.abs(yaw).toFixed(0)} deg, more than a compass is ever off. Center the real ${name} and try again.`);
+    return;
+  }
+  ar.yawOffset = yaw;
   saveCalibration();
-  document.getElementById("arStatus").textContent = `Aligned on ${name}. Compass correction ${ar.yawOffset.toFixed(0)} deg.`;
+  showCalibrateHint(`Calibrated on ${theName(name)}. Compass corrected by ${yaw.toFixed(0)} deg.`);
 }
 
 function alertInline(text) {
@@ -265,10 +311,11 @@ function alertInline(text) {
 document.getElementById("arOpenBtn").addEventListener("click", openAR);
 document.getElementById("arCloseBtn").addEventListener("click", closeAR);
 document.getElementById("arAlignBtn").addEventListener("click", () => alignOn(document.getElementById("arAlignSelect").value));
+document.getElementById("arAlignSelect").addEventListener("change", () => { ar.hintUntil = 0; showCalibrateHint(); });
 document.getElementById("arResetBtn").addEventListener("click", () => {
   ar.yawOffset = 0;
   saveCalibration();
-  document.getElementById("arStatus").textContent = "Compass correction cleared.";
+  showCalibrateHint("Compass correction cleared.");
 });
 document.getElementById("arFov").addEventListener("input", (e) => {
   ar.fov = Number(e.target.value);
