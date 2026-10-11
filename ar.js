@@ -86,16 +86,25 @@ function arRecalc() {
   updateCalibrateChoices(now);
 }
 
-// Calibration targets: only objects high enough to see, brightest first. A thin Moon is skipped.
-const CALIBRATE_ORDER = ["Moon", "Venus", "Jupiter", "Mars", "Saturn", "Mercury", "Sun"];
+// Calibration targets: only objects anyone can pick out without a star chart. Saturn and
+// Mercury are left out (too faint or too close to the Sun), planets need a dark enough sky,
+// Mars only counts when it is near Earth and bright, and a thin Moon is skipped.
+const CALIBRATE_RULES = {
+  Moon: (b, sunAlt, moonLit) => b.alt > 5 && moonLit >= 0.1,
+  Venus: (b, sunAlt) => b.alt > 5 && sunAlt < -3,
+  Jupiter: (b, sunAlt) => b.alt > 10 && sunAlt < -6,
+  Mars: (b, sunAlt) => b.alt > 10 && sunAlt < -6 && b.dist < 1,
+  Sun: (b) => b.alt > 5
+};
 
 function updateCalibrateChoices(now) {
   const select = document.getElementById("arAlignSelect");
   const btn = document.getElementById("arAlignBtn");
   const moonLit = moonPhase(now).illum;
-  const up = CALIBRATE_ORDER.filter((name) => {
+  const sun = ar.bodies.find((x) => x.name === "Sun");
+  const up = Object.keys(CALIBRATE_RULES).filter((name) => {
     const b = ar.bodies.find((x) => x.name === name);
-    return b && b.alt > 5 && !(name === "Moon" && moonLit < 0.1);
+    return b && sun && CALIBRATE_RULES[name](b, sun.alt, moonLit);
   });
   const keep = up.includes(select.value) ? select.value : up[0];
   if (up.join() !== [...select.options].map((o) => o.value).join()) {
@@ -112,9 +121,13 @@ function showCalibrateHint(text) {
   const select = document.getElementById("arAlignSelect");
   if (text) { hint.textContent = text; ar.hintUntil = Date.now() + 4000; return; }
   if (Date.now() < (ar.hintUntil || 0)) return;
-  hint.textContent = select.disabled
-    ? "Labels off? Nothing bright is up to calibrate on right now."
-    : `Labels off? Point the crosshair at the real ${select.value}, then tap Calibrate.`;
+  if (select.disabled) {
+    hint.textContent = "Nothing easy to spot is up right now, so the phone's compass is used as is.";
+  } else if (select.value === "Sun") {
+    hint.textContent = "Labels off? Aim the crosshair at the Sun without looking at it, then tap Calibrate.";
+  } else {
+    hint.textContent = `Labels off? Point the crosshair at the real ${select.value}, then tap Calibrate.`;
+  }
 }
 
 function arFrame() {
