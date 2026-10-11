@@ -124,11 +124,13 @@ let lastSky = null;
 
 const fmtTime = (t) => new Date(t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
+const DEFAULT_OBS = { lat: 39.76, lon: -84.19 };
+
 function getObserver() {
   let lat = Number(latInput.value);
   let lon = Number(lonInput.value);
-  if (!Number.isFinite(lat) || latInput.value === "") lat = 39.76;
-  if (!Number.isFinite(lon) || lonInput.value === "") lon = -84.19;
+  if (!Number.isFinite(lat) || latInput.value === "") lat = DEFAULT_OBS.lat;
+  if (!Number.isFinite(lon) || lonInput.value === "") lon = DEFAULT_OBS.lon;
   lat = Math.max(-89.9, Math.min(89.9, lat));
   lon = ((lon + 540) % 360) - 180;
   return { lat, lon };
@@ -139,7 +141,7 @@ function saveObserver() {
 }
 
 function loadObserver() {
-  let obs = { lat: 39.76, lon: -84.19 };
+  let obs = { ...DEFAULT_OBS };
   try {
     const saved = JSON.parse(localStorage.getItem("observer"));
     if (saved && Number.isFinite(saved.lat) && Number.isFinite(saved.lon)) obs = saved;
@@ -218,6 +220,7 @@ function drawSky(ms) {
   c.font = "12px system-ui, sans-serif";
   c.textAlign = "left";
   skyHits = [];
+  const labels = [];
   for (const b of bodies) {
     if (b.alt <= 0) continue;
     const [x, y] = proj(b.alt, b.az);
@@ -235,7 +238,7 @@ function drawSky(ms) {
     c.arc(x, y, b.size, 0, Math.PI * 2);
     c.fill();
     c.fillStyle = "rgba(232, 236, 255, 0.9)";
-    c.fillText(b.name, x + b.size + 4, y);
+    placeLabel(c, b.name, x, y, b.size, labels, size);
     skyHits.push({ name: b.name, x, y });
   }
 
@@ -361,7 +364,16 @@ for (const key of Object.keys(skyOpts)) {
   box.addEventListener("change", () => { skyOpts[key] = box.checked; render(); });
 }
 
+// Which location the sky uses, in words, so a default is never silent.
+function showLocLine() {
+  const { lat, lon } = getObserver();
+  const isDefault = Math.abs(lat - DEFAULT_OBS.lat) < 0.001 && Math.abs(lon - DEFAULT_OBS.lon) < 0.001;
+  const coords = `${Math.abs(lat).toFixed(2)}° ${lat >= 0 ? "N" : "S"}, ${Math.abs(lon).toFixed(2)}° ${lon >= 0 ? "E" : "W"}`;
+  document.getElementById("locLine").textContent = isDefault ? `Using a default location (Dayton, OH)` : `For ${coords}`;
+}
+
 function renderSkyPanel(ms) {
+  showLocLine();
   const { lat, lon } = getObserver();
   const rs = riseSetDay(ms, lat, lon);
   const jd = toJD(ms);
@@ -378,7 +390,8 @@ function renderSkyPanel(ms) {
     if (name === selectedBody) tr.classList.add("selected");
     const riseText = r.allUp ? "Up all day" : r.allDown ? "Not up" : r.rise ? fmtTime(r.rise) : "--";
     const setText = r.allUp || r.allDown ? "" : r.set ? fmtTime(r.set) : "--";
-    const nowText = n.alt > 0 ? `${n.alt.toFixed(0)}° ${compass(n.az)}` : "Below horizon";
+    const nowText = n.alt > 0 ? `${n.alt.toFixed(0)}° up, ${compass(n.az)}` : "Below";
+    if (n.alt <= 0) tr.classList.add("down");
     for (const text of [name, riseText, setText, nowText]) {
       const td = document.createElement("td");
       td.textContent = text;
@@ -397,7 +410,7 @@ locBtn.addEventListener("click", () => {
     locStatus.textContent = "Location is not available in this browser.";
     return;
   }
-  locStatus.textContent = "Finding you...";
+  locStatus.textContent = "Finding you... Allow location access if your phone asks.";
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       latInput.value = pos.coords.latitude.toFixed(3);
